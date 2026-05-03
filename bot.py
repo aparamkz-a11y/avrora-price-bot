@@ -12,7 +12,7 @@ from telegram.ext import (
     ContextTypes,
 )
 
-from process_supplier import detect_supplier, process_file
+from process_supplier import process_file
 
 logging.basicConfig(
     format="%(asctime)s  %(levelname)s  %(name)s  %(message)s",
@@ -38,8 +38,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await update.message.reply_text(
         "Привет! Я обрабатываю прайс-листы AVRORA Steel.\n\n"
-        "Отправьте .xlsx файл от поставщика (Руфат или Карагандинский) — "
-        "получите два файла с наценкой: розница и опт."
+        "Отправьте любой .xlsx файл от поставщика — "
+        "получите два файла с наценкой: розница и опт.\n\n"
+        "Работаю с любым форматом прайса автоматически."
     )
 
 
@@ -49,26 +50,15 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     doc = update.message.document
-    fname = doc.file_name or ""
+    fname = doc.file_name or "price.xlsx"
 
     if not fname.lower().endswith((".xlsx", ".xls")):
         await update.message.reply_text(
-            "Пожалуйста, отправьте файл формата .xlsx"
+            "Пожалуйста, отправьте файл формата .xlsx или .xls"
         )
         return
 
-    supplier = detect_supplier(fname)
-    if supplier is None:
-        await update.message.reply_text(
-            "❓ Не удалось определить поставщика по имени файла.\n\n"
-            "Откройте проект «AVRORA прайсы» в Claude, прикрепите этот файл "
-            "и напишите: «новый поставщик, добавь конфиг»."
-        )
-        return
-
-    await update.message.reply_text(
-        f"⏳ Обрабатываю прайс поставщика «{supplier['display_name']}»..."
-    )
+    await update.message.reply_text("⏳ Обрабатываю прайс...")
 
     tg_file = await doc.get_file()
     tmp = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
@@ -77,7 +67,15 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         await tg_file.download_to_drive(tmp_path)
-        retail_bytes, wholesale_bytes = process_file(tmp_path, supplier)
+        retail_bytes, wholesale_bytes, cols_found = process_file(tmp_path)
+
+        if cols_found == 0:
+            await update.message.reply_text(
+                "⚠️ Не удалось найти колонку с ценами в этом файле.\n"
+                "Файл возвращён без изменений — откройте проект «AVRORA прайсы» "
+                "в Claude и напишите: «не нашёл цены, вот файл»."
+            )
+            return
 
         stem = Path(fname).stem
         await update.message.reply_document(
