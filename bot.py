@@ -37,10 +37,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔ У вас нет доступа к этому боту.")
         return
     await update.message.reply_text(
-        "Привет! Я обрабатываю прайс-листы AVRORA Steel.\n\n"
-        "Отправьте любой .xlsx файл от поставщика — "
-        "получите два файла с наценкой: розница и опт.\n\n"
-        "Работаю с любым форматом прайса автоматически."
+        "Привет! Отправьте прайс-лист поставщика (.xlsx) — "
+        "верну два файла с наценкой AVRORA: розница и опт."
     )
 
 
